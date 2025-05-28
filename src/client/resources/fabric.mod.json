@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
 	"id": "advancedcrosshair",
-	"version": "${version}",
+	"version": "1.1",
 	"name": "AdvancedCrosshair",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Changes the color of your crosshair based on your ability to hit or critical hit an enemy player.",
 	"authors": [
 		"lynzl"
 	],
@@ -31,9 +31,6 @@
 		"java": ">=17",
 		"fabric-api": "*"
 	},
-    "depends": {
-        "modmenu": "*"
-    },
 	"suggests": {
 		"another-mod": "*"
 	}
