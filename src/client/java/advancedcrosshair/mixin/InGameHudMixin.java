@@ -169,21 +169,45 @@ public class InGameHudMixin {
             return false;
         }
 
-        double reachDistance = client.interactionManager.getReachDistance();
+        // Force 3 block reach limit regardless of gamemode (except creative/spectator)
+        double reachDistance = 3.0D;
+        
+        // Get player's eye position and look direction
+        Vec3d eyePosition = client.player.getCameraPosVec(1.0f);
+        Vec3d lookVector = client.player.getRotationVec(1.0f);
+        Vec3d traceEnd = eyePosition.add(lookVector.multiply(reachDistance));
         
         EntityHitResult entityHitResult = projectEntities(client.player, reachDistance);
 
         if (entityHitResult != null && entityHitResult.getEntity() instanceof LivingEntity livingEntity) {
             if (livingEntity.isAlive() && livingEntity.hurtTime <= 0) {
-                return true;
+                // Double-check: calculate actual distance to the hit point
+                double actualDistance = eyePosition.distanceTo(entityHitResult.getPos());
+                if (actualDistance <= 3.0D) {
+                    return true;
+                }
             }
         }
         
-        // Fallback to client.targetedEntity for reliability
+        // Fallback: check client.targetedEntity but verify it's within 3 blocks
         if (client.targetedEntity instanceof LivingEntity livingTargeted && 
             livingTargeted.isAlive() && 
             livingTargeted.hurtTime <= 0) {
-            return true;
+            
+            // Calculate distance from player's eye to the entity's center
+            Vec3d entityCenter = livingTargeted.getPos().add(0, livingTargeted.getHeight() / 2, 0);
+            double distanceToEntity = eyePosition.distanceTo(entityCenter);
+            
+            // Also check distance to the entity's bounding box edges
+            Box entityBox = livingTargeted.getBoundingBox();
+            double distanceToBox = entityBox.getCenter().distanceTo(eyePosition);
+            
+            // Use the smaller distance (more accurate for hit detection)
+            double finalDistance = Math.min(distanceToEntity, distanceToBox);
+            
+            if (finalDistance <= 3.0D) {
+                return true;
+            }
         }
 
         return false;
