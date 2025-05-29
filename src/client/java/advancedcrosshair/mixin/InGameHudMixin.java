@@ -56,28 +56,32 @@ public class InGameHudMixin {
             boolean isCriticalHitReady = isReadyForCriticalHit();
             boolean isAttackReady = !isCriticalHitReady && isLookingAtLivingEntityWithReadyAttack(); // Only check for red if not already blue
 
-            if (isCriticalHitReady) {
-                RenderSystem.setShaderColor(0.0F, 0.0F, 1.0F, 1.0F); // Blue for critical hit ready
-            } else if (isAttackReady) {
-                RenderSystem.setShaderColor(1.0F, 0.0F, 0.0F, 1.0F); // Red for attack ready
-            } else {
-                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F); // White by default
-            }
-
-            // Enable blending for proper rendering (for both crosshair and attack indicator)
+            // Always enable blending first
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
+
+            if (isCriticalHitReady) {
+                RenderSystem.setShaderColor(0.0F, 0.0F, 1.0F, 1.0F); // Blue for critical hit ready (solid)
+            } else if (isAttackReady) {
+                RenderSystem.setShaderColor(1.0F, 0.0F, 0.0F, 1.0F); // Red for attack ready (solid)
+            } else {
+                // White crosshair with transparency for vanilla blending effect
+                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.75F); // Semi-transparent white
+            }
 
             // Draw the crosshair using the current color
             // This respects resource pack changes to the crosshair texture
             context.drawTexture(GUI_ICONS_TEXTURE, centerX - 7, centerY - 7, 0, 0, 15, 15);
 
             // Render attack indicator if enabled
-            // It will now use the same color shader as the crosshair (blue, red, or white)
+            // Enable blending for attack indicator (it should always blend like vanilla)
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             renderAttackIndicator(context, centerX, centerY);
 
-            // Reset shader color and disable blend AFTER both crosshair and attack indicator are drawn
+            // Reset shader color
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F); // Reset to white
+            // Always disable blend at the end to clean up
             RenderSystem.disableBlend();
         }
     }
