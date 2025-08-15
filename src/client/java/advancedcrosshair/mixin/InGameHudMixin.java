@@ -96,11 +96,6 @@ public class InGameHudMixin {
             return false;
         }
 
-        float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
-        if (attackCooldown < 0.8F) {
-            return false;
-        }
-
         // Check if player is falling (required for critical hits)
         if (client.player.getVelocity().y >= 0.0D || client.player.isOnGround() ||
             client.player.isClimbing() || client.player.isSwimming()) {
@@ -120,7 +115,7 @@ public class InGameHudMixin {
             return false;
         }
 
-        return isLookingAtValidTarget(1.0F);
+        return isLookingAtValidTarget(0.0F); // Pass 0.0F to effectively bypass cooldown check in isLookingAtValidTarget
     }
 
     private boolean isLookingAtValidTarget(float minAttackCooldown) {
@@ -128,10 +123,8 @@ public class InGameHudMixin {
             return false;
         }
 
-        float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
-        if (attackCooldown < minAttackCooldown) {
-            return false;
-        }
+        // Cooldown check removed as per user request.
+        // The minAttackCooldown parameter is now effectively ignored for this purpose.
 
         double reachDistance = 3.0D;
         Vec3d eyePosition = client.player.getCameraPosVec(1.0f);
@@ -166,7 +159,7 @@ public class InGameHudMixin {
     }
 
     private boolean isLookingAtLivingEntityWithReadyAttack() {
-        return isLookingAtValidTarget(1.0F);
+        return isLookingAtValidTarget(0.0F); // Pass 0.0F to effectively bypass cooldown check
     }
 
     private EntityHitResult projectEntities(Entity entity, double maxDistance) {
