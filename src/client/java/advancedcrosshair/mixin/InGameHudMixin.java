@@ -97,7 +97,7 @@ public class InGameHudMixin {
         }
 
         float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
-        if (attackCooldown < 0.92F) {
+        if (attackCooldown < 0.8F) {
             return false;
         }
 
