@@ -63,6 +63,9 @@ public class InGameHudMixin {
 
         // Render the crosshair with the specific color
         renderColoredCrosshair(context, crosshairColor);
+
+        // Render the attack indicator
+        renderAttackIndicator(context);
     }
 
     private void renderColoredCrosshair(DrawContext context, int color) {
@@ -94,7 +97,7 @@ public class InGameHudMixin {
         }
 
         float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
-        if (attackCooldown < 0.96F) {
+        if (attackCooldown < 0.92F) {
             return false;
         }
 
@@ -187,5 +190,34 @@ public class InGameHudMixin {
             (entityToTest) -> !entityToTest.isSpectator() && entityToTest.isAttackable(),
             maxDistance * maxDistance
         );
+    }
+
+    private void renderAttackIndicator(DrawContext context) {
+        if (client == null || client.player == null) {
+            return;
+        }
+
+        float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
+        if (attackCooldown >= 1.0F) {
+            return; // Don't render if attack is fully charged
+        }
+
+        int centerX = context.getScaledWindowWidth() / 2;
+        int centerY = context.getScaledWindowHeight() / 2;
+
+        // Indicator dimensions
+        int indicatorWidth = 16;
+        int indicatorHeight = 2;
+        int indicatorOffset = 10; // Distance below the crosshair
+
+        int x = centerX - indicatorWidth / 2;
+        int y = centerY + indicatorOffset;
+
+        // Background bar (grey)
+        context.fill(x, y, x + indicatorWidth, y + indicatorHeight, 0x80808080);
+
+        // Progress bar (white)
+        int progressWidth = (int) (indicatorWidth * attackCooldown);
+        context.fill(x, y, x + progressWidth, y + indicatorHeight, 0xFFFFFFFF);
     }
 }
