@@ -1,11 +1,10 @@
 package advancedcrosshair.mixin;
-import net.minecraft.util.Identifier;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.AttackIndicator;
+import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffects;
@@ -24,16 +23,12 @@ public class InGameHudMixin {
 
     @Shadow private MinecraftClient client;
 
-    private static final Identifier CROSSHAIR_TEXTURE = Identifier.of("minecraft:textures/gui/sprites/hud/crosshair.png");
-    private static final Identifier ATTACK_INDICATOR_PROGRESS_TEXTURE = Identifier.of("minecraft:textures/gui/sprites/hud/crosshair_attack_indicator_progress.png");
-    private static final Identifier ATTACK_INDICATOR_FULL_TEXTURE = Identifier.of("minecraft:textures/gui/sprites/hud/crosshair_attack_indicator_full.png");
-
     @Inject(
         method = "renderCrosshair",
         at = @At("HEAD"),
         cancellable = true
     )
-    private void changeCrosshairColor(DrawContext context, net.minecraft.client.render.RenderTickCounter tickCounter, CallbackInfo ci) {
+    private void changeCrosshairColor(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
         // Ensure client, player, and world are initialized
         if (client == null || client.player == null || client.world == null) {
             return;
@@ -44,74 +39,53 @@ public class InGameHudMixin {
             return;
         }
 
-        // Cancel the original crosshair rendering
-        ci.cancel();
-
         // Check if crosshairs are hidden
         if (options.hudHidden) {
             return;
         }
 
+        // Cancel the original crosshair rendering
+        ci.cancel();
+
+        // Determine crosshair color based on game state
+        boolean isCriticalHitReady = isReadyForCriticalHit();
+        boolean isAttackReady = !isCriticalHitReady && isLookingAtLivingEntityWithReadyAttack();
+
+        // Determine color as ARGB integer
+        int crosshairColor;
+        if (isCriticalHitReady) {
+            crosshairColor = 0xFF0080FF; // Blue (ARGB: Alpha=FF, Red=00, Green=80, Blue=FF)
+        } else if (isAttackReady) {
+            crosshairColor = 0xFFFF3333; // Red (ARGB: Alpha=FF, Red=FF, Green=33, Blue=33)
+        } else {
+            crosshairColor = 0xBFFFFFFF; // Semi-transparent white (ARGB: Alpha=BF, Red=FF, Green=FF, Blue=FF)
+        }
+
+        // Render the crosshair with the specific color
+        renderColoredCrosshair(context, crosshairColor);
+    }
+
+    private void renderColoredCrosshair(DrawContext context, int color) {
         // Get screen center
         int centerX = context.getScaledWindowWidth() / 2;
         int centerY = context.getScaledWindowHeight() / 2;
 
-        // Determine crosshair color
-        boolean isCriticalHitReady = isReadyForCriticalHit();
-        boolean isAttackReady = !isCriticalHitReady && isLookingAtLivingEntityWithReadyAttack();
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        if (isCriticalHitReady) {
-            RenderSystem.setShaderColor(0.0F, 0.0F, 1.0F, 1.0F); // Blue
-        } else if (isAttackReady) {
-            RenderSystem.setShaderColor(1.0F, 0.0F, 0.0F, 1.0F); // Red
-        } else {
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.75F); // Semi-transparent white
-        }
-
-        // Draw the crosshair
-        context.drawTexture(CROSSHAIR_TEXTURE, centerX - 7, centerY - 7, 0, 0, 15, 15, 15, 15);
-
-        // Draw attack indicator
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        renderAttackIndicator(context, centerX, centerY);
-
-        // Reset color and disable blend
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.disableBlend();
-    }
-
-    private void renderAttackIndicator(DrawContext context, int centerX, int centerY) {
-        if (client == null || client.player == null || client.options == null) {
-            return;
-        }
-
-        if (client.options.getAttackIndicator().getValue() != AttackIndicator.CROSSHAIR) {
-            return;
-        }
-
-        float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
-        boolean isReady = false;
-
-        if (client.targetedEntity instanceof LivingEntity livingTarget && attackCooldown >= 1.0F) {
-            isReady = client.player.getAttackCooldownProgressPerTick() > 5.0F;
-            isReady &= (livingTarget.hurtTime <= 0);
-        }
-
-        int indicatorX = centerX - 8;
-        int indicatorY = centerY + 9;
-
-        if (attackCooldown < 1.0F) {
-            int progressWidth = (int)(attackCooldown * 18.0F);
-            if (progressWidth > 0) {
-                context.drawTexture(ATTACK_INDICATOR_PROGRESS_TEXTURE, indicatorX, indicatorY, 0, 0, progressWidth, 4, 18, 4);
-            }
-        } else if (isReady) {
-            context.drawTexture(ATTACK_INDICATOR_FULL_TEXTURE, indicatorX, indicatorY, 0, 0, 18, 4, 18, 4);
-        }
+        // Crosshair dimensions
+        int crosshairSize = 4;
+        int thickness = 1;
+        int gap = 0; // Small gap in the center
+        
+        // Draw horizontal line (left and right parts)
+        context.fill(centerX - crosshairSize - gap, centerY, 
+                    centerX - gap, centerY + thickness, color);
+        context.fill(centerX + gap, centerY,
+                    centerX + crosshairSize + gap + 1, centerY + thickness, color);
+        
+        // Draw vertical line (top and bottom parts)
+        context.fill(centerX, centerY - crosshairSize - gap,
+                    centerX + thickness, centerY - gap, color);
+        context.fill(centerX, centerY + gap,
+                    centerX + thickness, centerY + crosshairSize + gap + 1, color);
     }
 
     private boolean isReadyForCriticalHit() {
@@ -120,15 +94,17 @@ public class InGameHudMixin {
         }
 
         float attackCooldown = client.player.getAttackCooldownProgress(0.0F);
-        if (attackCooldown < 1.0F) {
+        if (attackCooldown < 0.96F) {
             return false;
         }
 
+        // Check if player is falling (required for critical hits)
         if (client.player.getVelocity().y >= 0.0D || client.player.isOnGround() ||
             client.player.isClimbing() || client.player.isSwimming()) {
             return false;
         }
 
+        // Check status effects that prevent critical hits
         if (client.player.hasStatusEffect(StatusEffects.BLINDNESS)) {
             return false;
         }
@@ -156,8 +132,8 @@ public class InGameHudMixin {
 
         double reachDistance = 3.0D;
         Vec3d eyePosition = client.player.getCameraPosVec(1.0f);
-        Vec3d lookVector = client.player.getRotationVec(1.0f);
 
+        // Check raycast hit result
         EntityHitResult entityHitResult = projectEntities(client.player, reachDistance);
         if (entityHitResult != null && entityHitResult.getEntity() instanceof LivingEntity livingEntity) {
             if (livingEntity.isAlive() && livingEntity.hurtTime <= 0) {
@@ -168,6 +144,7 @@ public class InGameHudMixin {
             }
         }
 
+        // Check targeted entity
         if (client.targetedEntity instanceof LivingEntity livingTargeted &&
             livingTargeted.isAlive() && livingTargeted.hurtTime <= 0) {
 
