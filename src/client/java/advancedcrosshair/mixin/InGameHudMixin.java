@@ -4,8 +4,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,13 +16,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Gui.class)
-public class InGameHudMixin {
+@Mixin(Hud.class)
+public abstract class InGameHudMixin {
 
     @Shadow private Minecraft minecraft;
+    @Shadow public abstract boolean isHidden();
 
     @Inject(
-        method = "renderCrosshair",
+        method = "extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
         at = @At("HEAD"),
         cancellable = true
     )
@@ -36,7 +37,7 @@ public class InGameHudMixin {
             return;
         }
 
-        if (options.hideGui) {
+        if (this.isHidden()) {
             return;
         }
 
@@ -90,7 +91,7 @@ public class InGameHudMixin {
         // Velocity provides instant client-side feedback for falling state.
         boolean isFalling = minecraft.player.getDeltaMovement().y < 0.0D 
                          && !minecraft.player.onGround() 
-                         && !minecraft.player.onClimable() 
+                         && !minecraft.player.onClimbable() 
                          && !minecraft.player.isInWater(); // More reliable than isSwimming().
 
         if (!isFalling) return false;
@@ -108,9 +109,9 @@ public class InGameHudMixin {
             return false;
         }
 
-        if (minecraft.crosshairTarget instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity livingTarget) {
+        if (minecraft.hitResult instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity livingTarget) {
             return livingTarget.isAlive();
-        } else if (minecraft.crosshairTarget instanceof LivingEntity livingTarget) {
+        } else if (minecraft.crosshairPickEntity instanceof LivingEntity livingTarget) {
             return livingTarget.isAlive();
         }
 
