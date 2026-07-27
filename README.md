@@ -8,7 +8,7 @@ Advanced Crosshair is a lightweight client-side mod that changes the color of yo
 
 ## 🧩 Features
 
-- **Compatible with ANY texturepack.** Unlike Crosshair Indicator.
+- (Non-functional on the latest version. Will be fixed soon) **Compatible with ANY texturepack.** Unlike Crosshair Indicator.
 
 - Fully client-side. No configuration. No dependancies.
 
