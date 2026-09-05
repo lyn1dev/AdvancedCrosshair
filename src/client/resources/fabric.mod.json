@@ -16,6 +16,9 @@
   "entrypoints": {
     "client": [
       "advancedcrosshair.AdvancedCrosshairClient"
+    ],
+    "modmenu": [
+      "advancedcrosshair.ModMenuIntegration"
     ]
   },
   "mixins": [
