@@ -1,37 +1,35 @@
 {
-	"schemaVersion": 1,
-	"id": "advancedcrosshair",
-	"version": "${version}",
-	"name": "AdvancedCrosshair",
-	"description": "Changes the color of your crosshair based on your ability to hit or critical hit an enemy player.",
-	"authors": [
-		"lynzl"
-	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
-	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
-	"environment": "*",
-	"entrypoints": {
-		"client": [
-			"advancedcrosshair.AdvancedCrosshairClient"
-		]
-	},
-    "mixins": [
-        {
-            "config": "advancedcrosshair.client.mixins.json",
-            "environment": "client"
-        }
-    ],
-	"depends": {
-		"fabricloader": ">=0.16.9",
-		"minecraft": ">=26.1",
-		"java": ">=25",
-		"fabric-api": "*"
-	},
-	"suggests": {
-		"another-mod": "*"
-	}
+  "schemaVersion": 1,
+  "id": "advancedcrosshair",
+  "version": "${version}",
+  "name": "AdvancedCrosshair",
+  "description": "Changes the color of your crosshair based on your ability to hit or critical hit an enemy player.",
+  "authors": [
+    "lynzl"
+  ],
+  "contact": {
+    "sources": "https://github.com/Lyn1dev/AdvancedCrosshair"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/modid/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "advancedcrosshair.AdvancedCrosshairClient"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "advancedcrosshair.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": ">=26.2 <26.3",
+    "java": ">=25"
+  },
+  "suggests": {
+    "fabric-api": "*"
+  }
 }
