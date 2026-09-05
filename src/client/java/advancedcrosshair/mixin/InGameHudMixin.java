@@ -20,6 +20,8 @@ public class InGameHudMixin {
     /** Sentinel meaning "draw the crosshair exactly the way vanilla would". */
     private static final int NO_TINT = 0;
     private static final int CRIT_TINT = 0xFF0080FF;
+    /** Sprite the vanilla HUD uses for the crosshair itself; resource packs restyle it but cannot rename it. */
+    private static final String CROSSHAIR_SPRITE_PATH = "hud/crosshair";
     private static final int ATTACK_TINT = 0xFFFF3333;
 
     @Shadow private Minecraft minecraft;
@@ -30,20 +32,20 @@ public class InGameHudMixin {
      * the method and drawing our own shape, we intercept that one blit and re-issue
      * it with a tint, so the pack's artwork is what changes color.
      *
-     * <p>ordinal = 0 pins this to the crosshair itself; the attack indicator further
-     * down the method uses the same overload and is left completely alone.
+     * <p>The same overload also draws the attack indicator later in the method, so
+     * rather than depending on call order we check the sprite and only tint the
+     * crosshair. Everything else is forwarded untouched.
      */
     @Redirect(
         method = "extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V",
-            ordinal = 0
+            target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"
         )
     )
     private void advancedcrosshair$tintCrosshair(GuiGraphicsExtractor graphics, RenderPipeline pipeline,
                                                  Identifier sprite, int x, int y, int width, int height) {
-        int tint = crosshairTint();
+        int tint = CROSSHAIR_SPRITE_PATH.equals(sprite.getPath()) ? crosshairTint() : NO_TINT;
         if (tint == NO_TINT) {
             graphics.blitSprite(pipeline, sprite, x, y, width, height);
             return;
