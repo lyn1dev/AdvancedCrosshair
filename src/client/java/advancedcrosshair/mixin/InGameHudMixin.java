@@ -1,10 +1,11 @@
 package advancedcrosshair.mixin;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import java.util.function.Function;
+
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.util.Identifier;
@@ -20,9 +21,9 @@ public class InGameHudMixin {
     /** Sentinel meaning "draw the crosshair exactly the way vanilla would". */
     private static final int NO_TINT = 0;
     private static final int CRIT_TINT = 0xFF0080FF;
+    private static final int ATTACK_TINT = 0xFFFF3333;
     /** Sprite the vanilla HUD uses for the crosshair itself; resource packs restyle it but cannot rename it. */
     private static final String CROSSHAIR_SPRITE_PATH = "hud/crosshair";
-    private static final int ATTACK_TINT = 0xFFFF3333;
 
     @Shadow private MinecraftClient client;
 
@@ -35,26 +36,30 @@ public class InGameHudMixin {
      * <p>The same overload also draws the attack indicator later in the method, so
      * rather than depending on call order we check the sprite and only tint the
      * crosshair. Everything else is forwarded untouched.
+     *
+     * <p>1.21.4 and 1.21.5 still take a {@code Function<Identifier, RenderLayer>}
+     * here; 1.21.6 replaced it with a RenderPipeline, which is why that band needs
+     * a separate jar.
      */
     @Redirect(
         method = "renderCrosshair(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/DrawContext;drawGuiTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIII)V"
+            target = "Lnet/minecraft/client/gui/DrawContext;drawGuiTexture(Ljava/util/function/Function;Lnet/minecraft/util/Identifier;IIII)V"
         )
     )
-    private void advancedcrosshair$tintCrosshair(DrawContext context, RenderPipeline pipeline,
+    private void advancedcrosshair$tintCrosshair(DrawContext context, Function<Identifier, RenderLayer> layers,
                                                  Identifier sprite, int x, int y, int width, int height) {
         int tint = CROSSHAIR_SPRITE_PATH.equals(sprite.getPath()) ? crosshairTint() : NO_TINT;
         if (tint == NO_TINT) {
-            context.drawGuiTexture(pipeline, sprite, x, y, width, height);
+            context.drawGuiTexture(layers, sprite, x, y, width, height);
             return;
         }
 
-        // The vanilla crosshair pipeline blends by inverting against the backdrop,
-        // which would swallow the tint, so switch to the plain GUI pipeline while
+        // The vanilla crosshair layer blends by inverting against the backdrop,
+        // which would swallow the tint, so switch to the plain GUI layer while
         // keeping the same sprite.
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height, tint);
+        context.drawGuiTexture(RenderLayer::getGuiTextured, sprite, x, y, width, height, tint);
     }
 
     private int crosshairTint() {
