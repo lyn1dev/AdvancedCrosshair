@@ -2,8 +2,10 @@ package advancedcrosshair.mixin;
 
 import java.util.function.Function;
 
+import advancedcrosshair.config.AdvancedCrosshairConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.DebugHud;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.entity.LivingEntity;
@@ -12,34 +14,42 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.EntityHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(InGameHud.class)
 public class InGameHudMixin {
 
-    /** Sentinel meaning "draw the crosshair exactly the way vanilla would". */
-    private static final int NO_TINT = 0;
-    private static final int CRIT_TINT = 0xFF0080FF;
-    private static final int ATTACK_TINT = 0xFFFF3333;
-    /** Sprite the vanilla HUD uses for the crosshair itself; resource packs restyle it but cannot rename it. */
-    private static final String CROSSHAIR_SPRITE_PATH = "hud/crosshair";
+    /** Sentinel meaning "draw exactly what vanilla would have drawn". */
+    @Unique private static final int NO_TINT = 0;
+    /** Sprite the vanilla HUD uses for the crosshair; packs restyle it but cannot rename it. */
+    @Unique private static final String CROSSHAIR_SPRITE_PATH = "hud/crosshair";
+    @Unique private static final String ATTACK_INDICATOR_PREFIX = "hud/crosshair_attack_indicator";
+
+    /**
+     * How far down the attack indicator has to move to clear a scaled-up
+     * crosshair. Set while drawing the crosshair, which vanilla always does
+     * first, and consumed by the indicator draws later in the same method.
+     */
+    @Unique private int advancedcrosshair$indicatorOffset;
 
     @Shadow private MinecraftClient client;
 
     /**
-     * Vanilla draws the crosshair with the sprite it looked up from the GUI atlas,
-     * which is whatever the active resource pack provides. Rather than cancelling
-     * the method and drawing our own shape, we intercept that one draw and re-issue
-     * it with a tint, so the pack's artwork is what changes color.
+     * Vanilla draws the crosshair with the sprite it resolved from the GUI atlas,
+     * which is whatever the active resource pack provides. Instead of cancelling
+     * the method and drawing our own shape, we intercept that draw and re-issue it
+     * scaled and tinted, so the pack's own artwork is what changes.
      *
-     * <p>The same overload also draws the attack indicator later in the method, so
-     * rather than depending on call order we check the sprite and only tint the
-     * crosshair. Everything else is forwarded untouched.
+     * <p>The same overload also draws the attack indicator, so we switch on the
+     * sprite rather than on call order: the crosshair is scaled and tinted, the
+     * indicator is only shifted down to stay clear of it, and anything else is
+     * forwarded untouched.
      *
-     * <p>1.21.4 and 1.21.5 still take a {@code Function<Identifier, RenderLayer>}
+     * <p>1.21.4 and 1.21.5 still pass a {@code Function<Identifier, RenderLayer>}
      * here; 1.21.6 replaced it with a RenderPipeline, which is why that band needs
-     * a separate jar.
+     * its own jar.
      */
     @Redirect(
         method = "renderCrosshair(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
@@ -48,31 +58,108 @@ public class InGameHudMixin {
             target = "Lnet/minecraft/client/gui/DrawContext;drawGuiTexture(Ljava/util/function/Function;Lnet/minecraft/util/Identifier;IIII)V"
         )
     )
-    private void advancedcrosshair$tintCrosshair(DrawContext context, Function<Identifier, RenderLayer> layers,
-                                                 Identifier sprite, int x, int y, int width, int height) {
-        int tint = CROSSHAIR_SPRITE_PATH.equals(sprite.getPath()) ? crosshairTint() : NO_TINT;
-        if (tint == NO_TINT) {
+    private void advancedcrosshair$drawSprite(DrawContext context, Function<Identifier, RenderLayer> layers,
+                                              Identifier sprite, int x, int y, int width, int height) {
+        AdvancedCrosshairConfig config = AdvancedCrosshairConfig.get();
+        if (!config.modEnabled) {
+            advancedcrosshair$indicatorOffset = 0;
             context.drawGuiTexture(layers, sprite, x, y, width, height);
             return;
         }
 
-        // The vanilla crosshair layer blends by inverting against the backdrop,
-        // which would swallow the tint, so switch to the plain GUI layer while
-        // keeping the same sprite.
-        context.drawGuiTexture(RenderLayer::getGuiTextured, sprite, x, y, width, height, tint);
+        String path = sprite.getPath();
+
+        if (CROSSHAIR_SPRITE_PATH.equals(path)) {
+            int scaledWidth = Math.max(1, Math.round(width * config.crosshairScale));
+            int scaledHeight = Math.max(1, Math.round(height * config.crosshairScale));
+            // Half the growth is how much further the crosshair now reaches below centre.
+            advancedcrosshair$indicatorOffset = (scaledHeight - height) / 2;
+
+            int drawX = x + width / 2 - scaledWidth / 2;
+            int drawY = y + height / 2 - scaledHeight / 2;
+
+            int tint = advancedcrosshair$tint(config);
+            if (tint == NO_TINT) {
+                context.drawGuiTexture(layers, sprite, drawX, drawY, scaledWidth, scaledHeight);
+            } else {
+                // The vanilla crosshair layer blends by inverting against the
+                // backdrop, which would swallow the tint, so draw the same sprite
+                // through the plain GUI layer instead.
+                context.drawGuiTexture(RenderLayer::getGuiTextured, sprite, drawX, drawY, scaledWidth, scaledHeight, tint);
+            }
+            return;
+        }
+
+        if (path.startsWith(ATTACK_INDICATOR_PREFIX)) {
+            context.drawGuiTexture(layers, sprite, x, y + advancedcrosshair$indicatorOffset, width, height);
+            return;
+        }
+
+        context.drawGuiTexture(layers, sprite, x, y, width, height);
     }
 
-    private int crosshairTint() {
+    /** The attack indicator's progress bar uses the sub-rectangle overload. */
+    @Redirect(
+        method = "renderCrosshair(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/DrawContext;drawGuiTexture(Ljava/util/function/Function;Lnet/minecraft/util/Identifier;IIIIIIII)V"
+        )
+    )
+    private void advancedcrosshair$drawSpriteRegion(DrawContext context, Function<Identifier, RenderLayer> layers,
+                                                    Identifier sprite, int textureWidth, int textureHeight,
+                                                    int u, int v, int x, int y, int width, int height) {
+        AdvancedCrosshairConfig config = AdvancedCrosshairConfig.get();
+        int offset = config.modEnabled && sprite.getPath().startsWith(ATTACK_INDICATOR_PREFIX)
+                ? advancedcrosshair$indicatorOffset
+                : 0;
+        context.drawGuiTexture(layers, sprite, textureWidth, textureHeight, u, v, x, y + offset, width, height);
+    }
+
+    /**
+     * Vanilla skips the flat crosshair while the F3 debug screen draws its
+     * three-dimensional one. Reporting the debug screen as hidden puts the normal
+     * crosshair back, which is what the option asks for.
+     *
+     * <p>On these versions the check is still inlined in renderCrosshair; 1.21.6
+     * moved it into a helper method.
+     */
+    @Redirect(
+        method = "renderCrosshair(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/hud/DebugHud;shouldShowDebugHud()Z"
+        )
+    )
+    private boolean advancedcrosshair$debugCrosshairVisible(DebugHud debugHud) {
+        boolean visible = debugHud.shouldShowDebugHud();
+        if (!visible) {
+            return false;
+        }
+        AdvancedCrosshairConfig config = AdvancedCrosshairConfig.get();
+        return !(config.modEnabled && config.showWithDebugHud);
+    }
+
+    @Unique
+    private int advancedcrosshair$tint(AdvancedCrosshairConfig config) {
         if (client == null || client.player == null || client.world == null) {
             return NO_TINT;
         }
-        if (!isLookingAtValidTarget()) {
+        if (!advancedcrosshair$isLookingAtValidTarget()) {
             return NO_TINT;
         }
-        return isReadyForCriticalHit() ? CRIT_TINT : ATTACK_TINT;
+
+        // A crit-capable moment still counts as a normal hit, so when the crit
+        // colour is switched off we fall through to the normal one rather than
+        // showing nothing.
+        if (config.criticalHitEnabled && advancedcrosshair$isReadyForCriticalHit()) {
+            return config.criticalHitColor;
+        }
+        return config.normalHitEnabled ? config.normalHitColor : NO_TINT;
     }
 
-    private boolean isReadyForCriticalHit() {
+    @Unique
+    private boolean advancedcrosshair$isReadyForCriticalHit() {
         // Velocity provides instant client-side feedback for falling state.
         boolean isFalling = client.player.getVelocity().y < 0.0D
                          && !client.player.isOnGround()
@@ -89,7 +176,8 @@ public class InGameHudMixin {
         return true;
     }
 
-    private boolean isLookingAtValidTarget() {
+    @Unique
+    private boolean advancedcrosshair$isLookingAtValidTarget() {
         if (client.crosshairTarget instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity livingTarget) {
             return livingTarget.isAlive();
         } else if (client.targetedEntity instanceof LivingEntity livingTarget) {
