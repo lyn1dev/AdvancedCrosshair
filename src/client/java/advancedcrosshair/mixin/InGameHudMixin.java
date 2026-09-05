@@ -1,113 +1,88 @@
 package advancedcrosshair.mixin;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.DeltaTracker;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Options;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(Gui.class)
 public class InGameHudMixin {
 
+    /** Sentinel meaning "draw the crosshair exactly the way vanilla would". */
+    private static final int NO_TINT = 0;
+    private static final int CRIT_TINT = 0xFF0080FF;
+    private static final int ATTACK_TINT = 0xFFFF3333;
+
     @Shadow private Minecraft minecraft;
 
-    @Inject(
+    /**
+     * Vanilla draws the crosshair with the sprite it looked up from the GUI atlas,
+     * which is whatever the active resource pack provides. Rather than cancelling
+     * the method and drawing our own shape, we intercept that one blit and re-issue
+     * it with a tint, so the pack's artwork is what changes color.
+     *
+     * <p>ordinal = 0 pins this to the crosshair itself; the attack indicator further
+     * down the method uses the same overload and is left completely alone.
+     */
+    @Redirect(
         method = "extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
-        at = @At("HEAD"),
-        cancellable = true
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V",
+            ordinal = 0
+        )
     )
-    private void changeCrosshairColor(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        if (minecraft == null || minecraft.player == null || minecraft.level == null) {
+    private void advancedcrosshair$tintCrosshair(GuiGraphicsExtractor graphics, RenderPipeline pipeline,
+                                                 Identifier sprite, int x, int y, int width, int height) {
+        int tint = crosshairTint();
+        if (tint == NO_TINT) {
+            graphics.blitSprite(pipeline, sprite, x, y, width, height);
             return;
         }
 
-        Options options = minecraft.options;
-        if (options == null || !options.getCameraType().isFirstPerson()) {
-            return;
-        }
-
-        if (options.hideGui) {
-            return;
-        }
-
-        // Stop the default crosshair from rendering.
-        ci.cancel();
-
-        // Decide the crosshair color.
-        boolean isCriticalHitReady = isReadyForCriticalHit();
-        boolean isAttackReady = !isCriticalHitReady && isLookingAtLivingEntityWithReadyAttack();
-
-        int crosshairColor;
-        if (isCriticalHitReady) {
-            crosshairColor = 0xFF0080FF; // Crit color
-        } else if (isAttackReady) {
-            crosshairColor = 0xFFFF3333; // Attackable color
-        } else {
-            crosshairColor = 0xBFFFFFFF; // Default color
-        }
-
-        // Draw the new crosshair and attack indicator.
-        renderColoredCrosshair(graphics, crosshairColor);
-        renderAttackIndicator(graphics);
+        // The vanilla crosshair pipeline blends by inverting against the backdrop,
+        // which would swallow the tint, so switch to the plain GUI pipeline while
+        // keeping the same sprite.
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height, tint);
     }
 
-    private void renderColoredCrosshair(GuiGraphicsExtractor graphics, int color) {
-        int centerX = graphics.guiWidth() / 2;
-        int centerY = graphics.guiHeight() / 2;
-
-        int crosshairSize = 4;
-        int thickness = 1;
-        int gap = 0;
-        
-        // Horizontal line
-        graphics.fill(centerX - crosshairSize - gap, centerY, 
-                    centerX - gap, centerY + thickness, color);
-        graphics.fill(centerX + gap, centerY,
-                    centerX + crosshairSize + gap + 1, centerY + thickness, color);
-        
-        // Vertical line
-        graphics.fill(centerX, centerY - crosshairSize - gap,
-                    centerX + thickness, centerY - gap, color);
-        graphics.fill(centerX, centerY + gap,
-                    centerX + thickness, centerY + crosshairSize + gap + 1, color);
+    private int crosshairTint() {
+        if (minecraft == null || minecraft.player == null || minecraft.level == null) {
+            return NO_TINT;
+        }
+        if (!isLookingAtValidTarget()) {
+            return NO_TINT;
+        }
+        return isReadyForCriticalHit() ? CRIT_TINT : ATTACK_TINT;
     }
 
     private boolean isReadyForCriticalHit() {
-        if (minecraft == null || minecraft.player == null || minecraft.level == null) {
-            return false;
-        }
-
         // Velocity provides instant client-side feedback for falling state.
-        boolean isFalling = minecraft.player.getDeltaMovement().y < 0.0D 
-                         && !minecraft.player.onGround() 
-                         && !minecraft.player.onClimbable() 
+        boolean isFalling = minecraft.player.getDeltaMovement().y < 0.0D
+                         && !minecraft.player.onGround()
+                         && !minecraft.player.onClimbable()
                          && !minecraft.player.isInWater(); // More reliable than isSwimming().
 
         if (!isFalling) return false;
-        
+
         // Check for conditions that prevent critical hits.
         if (minecraft.player.hasEffect(MobEffects.BLINDNESS)) return false;
         if (minecraft.player.isPassenger()) return false;
         if (minecraft.player.isSprinting()) return false;
 
-        return isLookingAtValidTarget();
+        return true;
     }
 
     private boolean isLookingAtValidTarget() {
-        if (minecraft == null || minecraft.player == null) {
-            return false;
-        }
-
         if (minecraft.hitResult instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity livingTarget) {
             return livingTarget.isAlive();
         } else if (minecraft.crosshairPickEntity instanceof LivingEntity livingTarget) {
@@ -115,38 +90,5 @@ public class InGameHudMixin {
         }
 
         return false;
-    }
-
-    private boolean isLookingAtLivingEntityWithReadyAttack() {
-        // Simple check for a valid target.
-        return isLookingAtValidTarget();
-    }
-
-    private void renderAttackIndicator(GuiGraphicsExtractor graphics) {
-        if (minecraft == null || minecraft.player == null) {
-            return;
-        }
-
-        float attackCooldown = minecraft.player.getAttackStrengthScale(0.0F);
-        if (attackCooldown >= 1.0F) {
-            return; // No indicator needed if attack is fully charged.
-        }
-
-        int centerX = graphics.guiWidth() / 2;
-        int centerY = graphics.guiHeight() / 2;
-
-        int indicatorWidth = 16;
-        int indicatorHeight = 2;
-        int indicatorOffset = 10;
-
-        int x = centerX - indicatorWidth / 2;
-        int y = centerY + indicatorOffset;
-
-        // Background of the indicator bar.
-        graphics.fill(x, y, x + indicatorWidth, y + indicatorHeight, 0x80808080);
-
-        // Foreground showing cooldown progress.
-        int progressWidth = (int) (indicatorWidth * attackCooldown);
-        graphics.fill(x, y, x + progressWidth, y + indicatorHeight, 0xFFFFFFFF);
     }
 }
