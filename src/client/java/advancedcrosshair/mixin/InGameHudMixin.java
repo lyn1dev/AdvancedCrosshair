@@ -5,7 +5,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,11 +16,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Hud.class)
-public abstract class InGameHudMixin {
+@Mixin(Gui.class)
+public class InGameHudMixin {
 
     @Shadow private Minecraft minecraft;
-    @Shadow public abstract boolean isHidden();
 
     @Inject(
         method = "extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
@@ -37,7 +36,7 @@ public abstract class InGameHudMixin {
             return;
         }
 
-        if (this.isHidden()) {
+        if (options.hideGui) {
             return;
         }
 
