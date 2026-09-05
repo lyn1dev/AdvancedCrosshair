@@ -6,7 +6,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.gui.hud.debug.DebugHudProfile;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.util.Identifier;
@@ -120,11 +119,13 @@ public class InGameHudMixin {
         method = "renderCrosshair(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/hud/debug/DebugHudProfile;isEntryVisible(Lnet/minecraft/util/Identifier;)Z"
+            target = "Lnet/minecraft/client/gui/hud/InGameHud;shouldRenderCrosshair()Z"
         )
     )
-    private boolean advancedcrosshair$debugCrosshairVisible(DebugHudProfile profile, Identifier entry) {
-        boolean visible = profile.isEntryVisible(entry);
+    private boolean advancedcrosshair$debugCrosshairVisible(InGameHud self) {
+        // Yarn's name is misleading: this reports whether the *debug* crosshair
+        // should be drawn, and renderCrosshair skips the flat one when it is true.
+        boolean visible = self.shouldRenderCrosshair();
         if (!visible) {
             return false;
         }
