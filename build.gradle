@@ -47,7 +47,10 @@ dependencies {
 
 }
 
-processResources {
+// fabric.mod.json lives in the client source set, so processResources (main)
+// never sees it. Configure every ProcessResources task instead, otherwise the
+// mod ships with a literal "${version}" that Fabric Loader cannot parse.
+tasks.withType(ProcessResources).configureEach {
 	inputs.property "version", project.version
 
 	filesMatching("fabric.mod.json") {
