@@ -20,6 +20,10 @@ repositories {
         name = "SpongePowered"
         url = "https://repo.spongepowered.org/maven"
     }
+    maven {
+        name = "Terraformers"
+        url = "https://maven.terraformersmc.com/"
+    }
 }
 
 loom {
@@ -38,6 +42,10 @@ dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Compile-only: the modmenu entrypoint is never loaded unless Mod Menu is
+	// installed, so the mod still runs without it and it is not shipped.
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 
 	// implementation "org.spongepowered:mixin:0.8.7"
 
