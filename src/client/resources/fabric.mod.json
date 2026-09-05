@@ -16,6 +16,9 @@
   "entrypoints": {
     "client": [
       "advancedcrosshair.AdvancedCrosshairClient"
+    ],
+    "modmenu": [
+      "advancedcrosshair.ModMenuIntegration"
     ]
   },
   "mixins": [
@@ -26,7 +29,7 @@
   ],
   "depends": {
     "fabricloader": ">=0.16.9",
-    "minecraft": ">=1.21.6 <1.21.12",
+    "minecraft": ">=1.21.9 <1.21.12",
     "java": ">=21"
   },
   "suggests": {
