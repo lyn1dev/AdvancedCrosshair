@@ -1,17 +1,13 @@
 package advancedcrosshair.mixin;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -70,13 +66,13 @@ public class InGameHudMixin {
         int crosshairSize = 4;
         int thickness = 1;
         int gap = 0;
-        
+
         // Horizontal line
-        context.fill(centerX - crosshairSize - gap, centerY, 
+        context.fill(centerX - crosshairSize - gap, centerY,
                     centerX - gap, centerY + thickness, color);
         context.fill(centerX + gap, centerY,
                     centerX + crosshairSize + gap + 1, centerY + thickness, color);
-        
+
         // Vertical line
         context.fill(centerX, centerY - crosshairSize - gap,
                     centerX + thickness, centerY - gap, color);
@@ -90,13 +86,13 @@ public class InGameHudMixin {
         }
 
         // Velocity provides instant client-side feedback for falling state.
-        boolean isFalling = client.player.getVelocity().y < 0.0D 
-                         && !client.player.isOnGround() 
-                         && !client.player.isClimbing() 
+        boolean isFalling = client.player.getVelocity().y < 0.0D
+                         && !client.player.isOnGround()
+                         && !client.player.isClimbing()
                          && !client.player.isTouchingWater(); // More reliable than isSwimming().
 
         if (!isFalling) return false;
-        
+
         // Check for conditions that prevent critical hits.
         if (client.player.hasStatusEffect(StatusEffects.BLINDNESS)) return false;
         if (client.player.hasVehicle()) return false;
@@ -110,7 +106,9 @@ public class InGameHudMixin {
             return false;
         }
 
-        if (client.targetedEntity instanceof LivingEntity livingTarget) {
+        if (client.crosshairTarget instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity livingTarget) {
+            return livingTarget.isAlive();
+        } else if (client.targetedEntity instanceof LivingEntity livingTarget) {
             // hurtTime is ignored so the color doesn't flicker on hit.
             return livingTarget.isAlive();
         }
