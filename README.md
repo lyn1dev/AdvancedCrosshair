@@ -14,6 +14,20 @@ Advanced Crosshair is a lightweight client-side mod that changes the color of yo
 
 - Fully client-side. No configuration. No dependancies.
 
+## Configuration
+
+Open the settings from **Mod Menu**, or edit `config/advancedcrosshair.json` by hand.
+
+| Setting | Default | Notes |
+|---|---|---|
+| Advanced Crosshair | ON | Master switch. Off means a completely untouched vanilla HUD. |
+| Normal hit color | ON, `#FFFF3333` | Any `#AARRGGBB` or `#RRGGBB` hex code, alpha included. |
+| Critical hit color | ON, `#FF0080FF` | Turning this off falls back to the normal hit color, since a crit-capable moment is still a hit. |
+| Crosshair scale | 100% | 50% to 500%. The attack indicator moves down to stay clear of a scaled-up crosshair. |
+| Crosshair with F3 open | OFF | On, the normal crosshair is drawn instead of the debug one. |
+
+Mod Menu is optional. Without it the mod still works and the JSON file is still read.
+
 ## 📍 Why is this useful?
 
 - Very useful for landing **Punish Crits** and **W-Release Crits** effectively. 
