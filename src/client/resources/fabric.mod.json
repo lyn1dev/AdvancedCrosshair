@@ -8,6 +8,8 @@
     "lynzl"
   ],
   "contact": {
+    "homepage": "https://modrinth.com/mod/adv-crosshair",
+    "issues": "https://github.com/lyn1dev/AdvancedCrosshair/issues",
     "sources": "https://github.com/Lyn1dev/AdvancedCrosshair"
   },
   "license": "CC0-1.0",
@@ -30,7 +32,8 @@
   "depends": {
     "fabricloader": ">=0.16.9",
     "minecraft": ">=1.21.4 <1.21.6",
-    "java": ">=21"
+    "java": ">=21",
+    "yet_another_config_lib_v3": ">=3.8.0"
   },
   "suggests": {
     "fabric-api": "*"
