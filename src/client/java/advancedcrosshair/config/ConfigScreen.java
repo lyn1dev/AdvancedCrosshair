@@ -1,159 +1,133 @@
 package advancedcrosshair.config;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.AbstractSliderButton;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
+import java.awt.Color;
+
+import dev.isxander.yacl3.api.ConfigCategory;
+import dev.isxander.yacl3.api.Option;
+import dev.isxander.yacl3.api.OptionDescription;
+import dev.isxander.yacl3.api.OptionGroup;
+import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
+import dev.isxander.yacl3.api.controller.ColorControllerBuilder;
+import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Settings screen, reached through Mod Menu.
+ * Settings screen, built with YetAnotherConfigLib and reached through Mod Menu.
  *
- * <p>Built only from vanilla widgets so the mod keeps working with no runtime
- * dependency on Mod Menu or any config library. Every control writes straight
- * into the shared {@link AdvancedCrosshairConfig}; the file is saved when the
- * screen closes.
+ * <p>YACL supplies the graphical colour picker — hue wheel, saturation and
+ * lightness gradient, and an alpha slider — that the two colour options open,
+ * so colours can be dialled in visually instead of typed as hex.
  */
-public class ConfigScreen extends Screen {
+public final class ConfigScreen {
 
-    private static final int ROW_HEIGHT = 22;
-    private static final int WIDGET_WIDTH = 220;
-    private static final int LABEL_WIDTH = 96;
-    private static final int INVALID_COLOR = 0xFFFF5555;
-    private static final int VALID_COLOR = 0xFFE0E0E0;
-
-    private final Screen parent;
-    private final AdvancedCrosshairConfig config = AdvancedCrosshairConfig.get();
-
-    private EditBox normalColorBox;
-    private EditBox criticalColorBox;
-
-    public ConfigScreen(Screen parent) {
-        super(Component.literal("Advanced Crosshair"));
-        this.parent = parent;
+    private ConfigScreen() {
     }
 
-    @Override
-    protected void init() {
-        int left = this.width / 2 - WIDGET_WIDTH / 2;
-        int y = Math.max(32, this.height / 2 - (ROW_HEIGHT * 8) / 2);
+    public static Screen create(Screen parent) {
+        AdvancedCrosshairConfig config = AdvancedCrosshairConfig.get();
 
-        this.addRenderableWidget(Button.builder(toggleLabel("Advanced Crosshair", config.modEnabled), b -> {
-            config.modEnabled = !config.modEnabled;
-            b.setMessage(toggleLabel("Advanced Crosshair", config.modEnabled));
-        }).bounds(left, y, WIDGET_WIDTH, 20).build());
-        y += ROW_HEIGHT;
+        return YetAnotherConfigLib.createBuilder()
+                .title(Component.literal("Advanced Crosshair"))
+                .category(ConfigCategory.createBuilder()
+                        .name(Component.literal("Crosshair"))
 
-        this.addRenderableWidget(Button.builder(toggleLabel("Normal hit color", config.normalHitEnabled), b -> {
-            config.normalHitEnabled = !config.normalHitEnabled;
-            b.setMessage(toggleLabel("Normal hit color", config.normalHitEnabled));
-        }).bounds(left, y, WIDGET_WIDTH, 20).build());
-        y += ROW_HEIGHT;
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.literal("General"))
+                                .option(Option.<Boolean>createBuilder()
+                                        .name(Component.literal("Enable Advanced Crosshair"))
+                                        .description(OptionDescription.of(Component.literal(
+                                                "Master switch. When off the HUD is left exactly as vanilla draws it.")))
+                                        .binding(true,
+                                                () -> config.modEnabled,
+                                                value -> config.modEnabled = value)
+                                        .controller(opt -> BooleanControllerBuilder.create(opt)
+                                                .coloured(true)
+                                                .onOffFormatter())
+                                        .build())
+                                .build())
 
-        this.normalColorBox = colorField(left, y, config.normalHitColor, value -> config.normalHitColor = value);
-        y += ROW_HEIGHT;
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.literal("Normal hit"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Shown whenever you are aimed at a living entity you could hit.")))
+                                .option(Option.<Boolean>createBuilder()
+                                        .name(Component.literal("Colour normal hits"))
+                                        .binding(true,
+                                                () -> config.normalHitEnabled,
+                                                value -> config.normalHitEnabled = value)
+                                        .controller(opt -> BooleanControllerBuilder.create(opt)
+                                                .coloured(true)
+                                                .onOffFormatter())
+                                        .build())
+                                .option(Option.<Color>createBuilder()
+                                        .name(Component.literal("Normal hit colour"))
+                                        .description(OptionDescription.of(Component.literal(
+                                                "Opens a colour picker. Alpha is respected, so lower it for a subtler tint.")))
+                                        .binding(new Color(AdvancedCrosshairConfig.DEFAULT_NORMAL_HIT_COLOR, true),
+                                                () -> new Color(config.normalHitColor, true),
+                                                value -> config.normalHitColor = value.getRGB())
+                                        .controller(opt -> ColorControllerBuilder.create(opt).allowAlpha(true))
+                                        .build())
+                                .build())
 
-        this.addRenderableWidget(Button.builder(toggleLabel("Critical hit color", config.criticalHitEnabled), b -> {
-            config.criticalHitEnabled = !config.criticalHitEnabled;
-            b.setMessage(toggleLabel("Critical hit color", config.criticalHitEnabled));
-        }).bounds(left, y, WIDGET_WIDTH, 20).build());
-        y += ROW_HEIGHT;
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.literal("Critical hit"))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Shown when the hit would land as a critical. Turning this off falls back to "
+                                                + "the normal hit colour, since a crit-capable moment is still a hit.")))
+                                .option(Option.<Boolean>createBuilder()
+                                        .name(Component.literal("Colour critical hits"))
+                                        .binding(true,
+                                                () -> config.criticalHitEnabled,
+                                                value -> config.criticalHitEnabled = value)
+                                        .controller(opt -> BooleanControllerBuilder.create(opt)
+                                                .coloured(true)
+                                                .onOffFormatter())
+                                        .build())
+                                .option(Option.<Color>createBuilder()
+                                        .name(Component.literal("Critical hit colour"))
+                                        .description(OptionDescription.of(Component.literal(
+                                                "Opens a colour picker. Alpha is respected, so lower it for a subtler tint.")))
+                                        .binding(new Color(AdvancedCrosshairConfig.DEFAULT_CRITICAL_HIT_COLOR, true),
+                                                () -> new Color(config.criticalHitColor, true),
+                                                value -> config.criticalHitColor = value.getRGB())
+                                        .controller(opt -> ColorControllerBuilder.create(opt).allowAlpha(true))
+                                        .build())
+                                .build())
 
-        this.criticalColorBox = colorField(left, y, config.criticalHitColor, value -> config.criticalHitColor = value);
-        y += ROW_HEIGHT;
-
-        this.addRenderableWidget(new ScaleSlider(left, y, WIDGET_WIDTH, 20));
-        y += ROW_HEIGHT;
-
-        this.addRenderableWidget(Button.builder(toggleLabel("Crosshair with F3 open", config.showWithDebugHud), b -> {
-            config.showWithDebugHud = !config.showWithDebugHud;
-            b.setMessage(toggleLabel("Crosshair with F3 open", config.showWithDebugHud));
-        }).bounds(left, y, WIDGET_WIDTH, 20).build());
-        y += ROW_HEIGHT + 6;
-
-        int half = WIDGET_WIDTH / 2 - 2;
-        this.addRenderableWidget(Button.builder(Component.literal("Reset defaults"), b -> {
-            config.resetToDefaults();
-            this.rebuildWidgets();
-        }).bounds(left, y, half, 20).build());
-        this.addRenderableWidget(Button.builder(Component.literal("Done"), b -> this.onClose())
-                .bounds(left + WIDGET_WIDTH - half, y, half, 20).build());
-    }
-
-    private EditBox colorField(int left, int y, int initial, java.util.function.IntConsumer sink) {
-        int boxLeft = left + LABEL_WIDTH;
-        EditBox box = new EditBox(this.font, boxLeft, y, WIDGET_WIDTH - LABEL_WIDTH, 20,
-                Component.literal("Color"));
-        box.setMaxLength(9);
-        box.setValue(AdvancedCrosshairConfig.toHex(initial));
-        box.setResponder(text -> {
-            Integer parsed = AdvancedCrosshairConfig.parseHex(text);
-            // Keep the last good value rather than writing garbage mid-typing,
-            // and tint the field so an unfinished code is obviously not applied.
-            box.setTextColor(parsed == null ? INVALID_COLOR : VALID_COLOR);
-            if (parsed != null) {
-                sink.accept(parsed);
-            }
-        });
-        this.addRenderableWidget(box);
-        return box;
-    }
-
-    private static Component toggleLabel(String name, boolean on) {
-        return Component.literal(name + ": " + (on ? "ON" : "OFF"));
-    }
-
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-
-        graphics.text(this.font, this.title,
-                this.width / 2 - this.font.width(this.title) / 2, 14, 0xFFFFFFFF);
-
-        int left = this.width / 2 - WIDGET_WIDTH / 2;
-        if (this.normalColorBox != null) {
-            label(graphics, "Normal hex", left, this.normalColorBox.getY());
-        }
-        if (this.criticalColorBox != null) {
-            label(graphics, "Critical hex", left, this.criticalColorBox.getY());
-        }
-    }
-
-    private void label(GuiGraphicsExtractor graphics, String text, int x, int rowY) {
-        graphics.text(this.font, Component.literal(text), x, rowY + 6, 0xFFA0A0A0);
-    }
-
-    @Override
-    public void onClose() {
-        config.save();
-        this.minecraft.setScreenAndShow(this.parent);
-    }
-
-    /** Maps the slider position onto [MIN_SCALE, MAX_SCALE] in 5% steps. */
-    private final class ScaleSlider extends AbstractSliderButton {
-
-        private ScaleSlider(int x, int y, int width, int height) {
-            super(x, y, width, height, Component.empty(),
-                    (config.crosshairScale - AdvancedCrosshairConfig.MIN_SCALE)
-                            / (AdvancedCrosshairConfig.MAX_SCALE - AdvancedCrosshairConfig.MIN_SCALE));
-            this.updateMessage();
-        }
-
-        private float scale() {
-            float raw = AdvancedCrosshairConfig.MIN_SCALE
-                    + (float) this.value * (AdvancedCrosshairConfig.MAX_SCALE - AdvancedCrosshairConfig.MIN_SCALE);
-            return AdvancedCrosshairConfig.clampScale(Math.round(raw * 20.0F) / 20.0F);
-        }
-
-        @Override
-        protected void updateMessage() {
-            this.setMessage(Component.literal("Crosshair scale: " + Math.round(scale() * 100.0F) + "%"));
-        }
-
-        @Override
-        protected void applyValue() {
-            config.crosshairScale = scale();
-        }
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.literal("Appearance"))
+                                .option(Option.<Float>createBuilder()
+                                        .name(Component.literal("Crosshair scale"))
+                                        .description(OptionDescription.of(Component.literal(
+                                                "Size of the crosshair relative to vanilla. The attack indicator moves "
+                                                        + "down to stay clear of a scaled-up crosshair.")))
+                                        .binding(AdvancedCrosshairConfig.DEFAULT_SCALE,
+                                                () -> config.crosshairScale,
+                                                value -> config.crosshairScale = value)
+                                        .controller(opt -> FloatSliderControllerBuilder.create(opt)
+                                                .range(AdvancedCrosshairConfig.MIN_SCALE, AdvancedCrosshairConfig.MAX_SCALE)
+                                                .step(0.05F)
+                                                .formatValue(value -> Component.literal(Math.round(value * 100.0F) + "%")))
+                                        .build())
+                                .option(Option.<Boolean>createBuilder()
+                                        .name(Component.literal("Crosshair with F3 open"))
+                                        .description(OptionDescription.of(Component.literal(
+                                                "When on, the normal crosshair is drawn instead of the debug screen's "
+                                                        + "three-dimensional one.")))
+                                        .binding(false,
+                                                () -> config.showWithDebugHud,
+                                                value -> config.showWithDebugHud = value)
+                                        .controller(opt -> BooleanControllerBuilder.create(opt)
+                                                .coloured(true)
+                                                .onOffFormatter())
+                                        .build())
+                                .build())
+                        .build())
+                .save(config::save)
+                .build()
+                .generateScreen(parent);
     }
 }
