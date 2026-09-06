@@ -24,6 +24,11 @@ repositories {
         name = "Terraformers"
         url = "https://maven.terraformersmc.com/"
     }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content { includeGroup "maven.modrinth" }
+    }
 }
 
 loom {
@@ -47,6 +52,10 @@ dependencies {
 	// Compile-only: the modmenu entrypoint is never loaded unless Mod Menu is
 	// installed, so the mod still runs without it and it is not shipped.
 	modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+	// Provides the config screen and its colour picker. Required at runtime;
+	// not bundled, players install it alongside the mod.
+	modCompileOnly "maven.modrinth:yacl:${project.yacl_version}"
 
 	// implementation "org.spongepowered:mixin:0.8.7"
 
