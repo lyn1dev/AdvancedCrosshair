@@ -2,13 +2,35 @@
 # and submitted pull request. This can help catch issues that only occur on
 # certain platforms or Java versions, and provides a first line of defence
 # against bad commits.
+#
+# Tag pushes (v*) additionally run release.yml, which publishes a GitHub
+# Release with the remapped mod jar.
 
 name: build
-on: [pull_request, push]
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+# Read-only token: this workflow only builds and uploads artifacts.
+permissions:
+  contents: read
+
+# Superseded runs are wasted CI time. On pull requests a new push cancels the
+# previous run; on branch pushes the runs are left alone so every commit keeps
+# a result (useful for release bookkeeping).
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
     strategy:
+      # A failure on one OS/Java version should not hide the result of the other.
+      fail-fast: false
       matrix:
         # Use these Java versions
         java: [
@@ -20,21 +42,38 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v7
+
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
+
       - name: setup jdk ${{ matrix.java }}
         uses: actions/setup-java@v6
         with:
           java-version: ${{ matrix.java }}
           distribution: 'microsoft'
+
+      - name: setup gradle
+        uses: gradle/actions/setup-gradle@v6
+
       - name: make gradle wrapper executable
         if: ${{ runner.os != 'Windows' }}
         run: chmod +x ./gradlew
+
+      - name: read mod version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep -E '^mod_version=' gradle.properties | cut -d'=' -f2- | tr -d '\r')
+          echo "mod_version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: build
-        run: ./gradlew build
+        run: ./gradlew build --stacktrace
+
       - name: capture build artifacts
-        if: ${{ runner.os == 'Linux' && matrix.java == '25' }} # Only upload artifacts built from latest java on one OS
+        if: ${{ runner.os == 'Linux' && matrix.java == 25 }} # Only upload artifacts built from latest java on one OS
         uses: actions/upload-artifact@v7
         with:
-          name: Artifacts
-          path: build/libs/
+          name: advancedcrosshair-${{ steps.version.outputs.mod_version }}-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 30
